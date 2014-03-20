@@ -1,3 +1,5 @@
+#include <Serial.h>
+
 // scrolltext demo for Adafruit RGBmatrixPanel library.
 // Demonstrates double-buffered animation on our 16x32 RGB LED matrix:
 // http://www.adafruit.com/products/420
@@ -29,40 +31,121 @@ RGBmatrixPanel matrix(A, B, C, CLK, LAT, OE, false);
 
 const char str[] PROGMEM = " disapproving headshakes";
 int    textX   = matrix.width(),
-       textMin = sizeof(str) * -14,
-       hue     = 0;
+textMin = sizeof(str) * -14,
+hue     = 0;
 
-byte mac[] = {  
+byte mac[] = { 
   0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
-
+char server[] = "10.0.2.39";
 EthernetClient client;
 
 void setup() {
+  Serial.begin(9600);
+
   matrix.begin();
   matrix.setTextWrap(false); // Allow text to run off right edge
   matrix.setTextSize(2);
-  Ethernet.begin(mac);
+  Serial.println(Ethernet.begin(mac));
+  delay(1000); //hold in order to allow dhcp to complete
+
+
 }
 
+int update() {
+  int val = -2;
+
+  //retrieve the current headshake count
+  if(client.connect(server, 80)) {
+    client.println("GET /headshake");
+    client.println("Connection: close");
+    client.println();
+
+    delay(500); //allow spi to sync the data over
+
+    if(client.available()) {
+      val = 0;
+      int temp = 0;
+
+      while((temp = client.read()) != '\n') {
+        val = val * 10 + temp - '0';
+      }
+//      return val; //return the int of how many headshakes have occured
+    } 
+    else {
+      val = -1;
+    }
+  } 
+  client.stop();
+  return val;
+}
+
+#define SLEEP_MILLIS       12
+
+#define WAITING_STATE      0
+#define CONNECTING_STATE   1
+#define FAILURE_STATE      2
+
+#define WAITING_SECS       5
+#define WAITING_LOOPS      ((1000 * (WAITING_SECS)) / (SLEEP_MILLIS))
+
+#define CONNECTING_SECS    1
+#define CONNECTING_LOOPS   ((1000 * (CONNECTING_SECS)) / (SLEEP_MILLIS))
+
+int state = 0;
+int loopCount = 0;
+int displayedValue = 0;
+
 void loop() {
-  byte i;
-  byte x=255;
+  if(state == WAITING_STATE) {
+    if(++loopCount >= WAITING_LOOPS) {
+      loopCount = 0;
+
+      if(client.connect(server, 80)) {
+        client.println("GET /headshake\nConnection: close\n\n");
+        state = CONNECTING_STATE;
+      } else {
+        state = FAILURE_STATE;
+      }
+    }
+  } else if(state == CONNECTING_STATE) {
+    if(++loopCount >= CONNECTING_LOOPS) {
+      loopCount = 0;
+
+      if(client.available()) {
+        displayedValue = 0;
+        int temp = 0;
+
+        while((temp = client.read()) != '\n') {
+          displayedValue = displayedValue * 10 + temp - '0';
+        }
+
+        state = WAITING_STATE;
+        client.stop();
+      } else {
+        state = FAILURE_STATE;
+      }
+    }
+  } else if(state == FAILURE_STATE) {
+    displayedValue = -1;
+    //we should handle this
+  }
 
   // Clear background
   matrix.fillScreen(0);
 
   // Draw big scrolly text on top
-  matrix.setTextColor(matrix.ColorHSV(hue, 255, 255, true));
+  matrix.setTextColor(matrix.ColorHSV(hue, 255, 150, true));
   matrix.setCursor(textX, 1);
-  matrix.print(x);
+  matrix.print(displayedValue);
   matrix.print(F2(str));
+  //matrix.print(Ethernet.localIP());
 
-  
   // Move text left (w/wrap), increase hue
   if((--textX) < textMin) textX = matrix.width();
   hue += 7;
   if(hue >= 1536) hue -= 1536;
-  
+
   //sleep for a few ms to smooth out the redraw
-  delay(20);
+  delay(SLEEP_MILLIS);
 }
+
