@@ -8,6 +8,8 @@
 
 #include <Adafruit_GFX.h>   // Core graphics library
 #include <RGBmatrixPanel.h> // Hardware-specific library
+#include <SPI.h>
+#include <Ethernet.h>
 
 // Similar to F(), but for PROGMEM string pointers rather than literals
 #define F2(progmem_ptr) (const __FlashStringHelper *)progmem_ptr
@@ -18,23 +20,28 @@
 #define A   A0
 #define B   A1
 #define C   A2
+
+
 // Last parameter = 'true' enables double-buffering, for flicker-free,
 // buttery smooth animation.  Note that NOTHING WILL SHOW ON THE DISPLAY
 // until the first call to swapBuffers().  This is normal.
 RGBmatrixPanel matrix(A, B, C, CLK, LAT, OE, false);
-// Double-buffered mode consumes nearly all the RAM available on the
-// Arduino Uno -- only a handful of free bytes remain.  Even the
-// following string needs to go in PROGMEM:
 
 const char str[] PROGMEM = " disapproving headshakes";
 int    textX   = matrix.width(),
        textMin = sizeof(str) * -14,
        hue     = 0;
 
+byte mac[] = {  
+  0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02 };
+
+EthernetClient client;
+
 void setup() {
   matrix.begin();
   matrix.setTextWrap(false); // Allow text to run off right edge
   matrix.setTextSize(2);
+  Ethernet.begin(mac);
 }
 
 void loop() {
