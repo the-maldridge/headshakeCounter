@@ -26,9 +26,9 @@ RGBmatrixPanel matrix(A, B, C, CLK, LAT, OE, false);
 // Arduino Uno -- only a handful of free bytes remain.  Even the
 // following string needs to go in PROGMEM:
 
-const char str[] PROGMEM = " Disapproving Headshakes";
+const char str[] PROGMEM = " disapproving headshakes";
 int    textX   = matrix.width(),
-       textMin = sizeof(str) * -12,
+       textMin = sizeof(str) * -14,
        hue     = 0;
 
 void setup() {
@@ -39,7 +39,7 @@ void setup() {
 
 void loop() {
   byte i;
-  byte x=15;
+  byte x=255;
 
   // Clear background
   matrix.fillScreen(0);
